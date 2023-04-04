@@ -5,6 +5,15 @@ using namespace std;
 namespace ly
 {
     template <class T>
+    struct DefaultDelete
+    {
+        void operator()(T* ptr)
+        {
+            delete ptr;
+        }
+    };
+
+    template <class T,class D = DefaultDelete<T>>
     class shared_ptr
     {
     public:
@@ -25,8 +34,10 @@ namespace ly
             if(_ptr != sp._ptr)//保证自己不给自己赋值
             {
                 release();
+
                 _ptr = sp._ptr;
                 _pcount = sp._pcount;
+                
                 _pmtx = sp._pmtx;
                 _pmtx->lock();
                 ++(*_pcount);//赋值指向同一资源，引用计数+1
@@ -42,8 +53,10 @@ namespace ly
             if(--(*_pcount) == 0)
             {
                 //delete[] _ptr;//关键问题
-                delete _ptr;
-                delete _pcount;
+                // delete _ptr;
+                // delete _pcount;
+
+                _del(_ptr);
                 //cout << "释放资源" << endl;
                 flag = true;
             }
@@ -83,6 +96,7 @@ namespace ly
         T* _ptr;//指向资源
         int* _pcount;//引用计数
         mutex* _pmtx;
+        D _del;
     };
 
     template <class T>

@@ -129,8 +129,36 @@ void test4()//循环引用问题
     // delete n2;
 }
 
+template <class T>
+struct DelAll
+{
+    void operator()(T* ptr)
+    {
+        delete[] ptr;
+        cout << "delete [] " << ptr << endl; 
+    }  
+};
+
+template <>
+struct DelAll<FILE>
+{
+    void operator()(FILE* ptr)
+    {
+        fclose(ptr);
+        cout << "delete File" << ptr << endl;
+    }
+};
+
+
+void test5()//定制删除器
+{
+    ly::shared_ptr<int,DelAll<int>> sp1(new int[10]);
+    ly::shared_ptr<FILE,DelAll<FILE>> sp2(fopen("hello.txt","r"));
+    
+}
+
 int main()
 {
-    test4();
+    test5();
     return 0;
 }
