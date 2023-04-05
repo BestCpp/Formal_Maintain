@@ -2,6 +2,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <mutex>
 using namespace std;
 
 // 设计一个不能被拷贝的类
@@ -116,14 +117,61 @@ using namespace std;
 class Singleton//懒汉模式,在main函数前就创建对象了
 {
 public:
+    // static Singleton& Create()
+    // {
+    //     //需要注意线程安全问题
+    //     if(_sg == nullptr)// 只需要上一次锁，都可以这样用
+    //     {
+    //         _mtx.lock();
+    //         if(_sg == nullptr)//在第一次调用Create时创建对象
+    //         {
+    //             _sg = new Singleton;
+    //         }
+    //         _mtx.unlock();
+    //     }
+    //     return *_sg;
+    // }
+
     static Singleton& Create()
     {
-        if(_sg == nullptr)//在第一次调用Create时创建对象
+        //需要注意线程安全问题
+        if(_sg == nullptr)// 只需要上一次锁，都可以这样用
         {
-            _sg = new Singleton;
+            lock_guard<mutex> lock(_mtx);
+            if(_sg == nullptr)//在第一次调用Create时创建对象
+            {
+                _sg = new Singleton;
+            }
         }
         return *_sg;
     }
+    
+    static void DelInstance()
+    {
+        // 假如对象需要销毁需要做一些工作
+        // ...例如保存数据到文件......
+        cout << "DelInstance()" << endl;
+        lock_guard<mutex> lock(_mtx);
+        if(_sg)
+        {
+            delete _sg;
+            _sg = nullptr;
+        }
+    }
+
+    class GC
+    {
+    public:
+        ~GC()
+        {
+            if(_sg)
+            {
+                cout << "~GC()" << endl;
+                DelInstance();
+            }
+            
+        }
+    };
     
     void insert(const string& name,int money)
     {
@@ -145,9 +193,49 @@ private:
 
     static Singleton* _sg;
     map<string,int> _m;
+    static mutex _mtx;
+    static GC _gc;// Singleton销毁时_gc也会销毁
 };
 Singleton* Singleton::_sg = nullptr;//创建对象
+mutex Singleton::_mtx;
+Singleton::GC Singleton::_gc;
 
+
+// class Singleton//懒汉模式,在main函数前就创建对象了
+// {
+// public:
+//     static Singleton& Create()
+//     {
+//         // C++98不能保证这里是线程安全的
+//         // 但是C++11之后可以
+//         static Singleton _sg;
+//         return _sg;
+//     }
+    
+//     void insert(const string& name,int money)
+//     {
+//         _m[name] = money;
+//     }
+
+//     void print()
+//     {
+//         for(auto&e :_m)
+//         {
+//             cout << e.first << ":" << e.second << endl;
+//         }
+//     }
+// private:
+//     //不能在堆、栈上创建对象
+//     Singleton(){}
+//     Singleton(const Singleton& sg) = delete;
+//     Singleton& operator=(const Singleton& sg) = delete;
+
+//     static Singleton* _sg;
+//     map<string,int> _m;
+//     static mutex _mtx;
+// };
+//Singleton* Singleton::_sg = nullptr;//创建对象
+//mutex Singleton::_mtx;
 
 int main()
 {
@@ -156,5 +244,6 @@ int main()
     sl.insert("李四",20000);
     sl.print();
 
+    //Singleton::Create().DelInstance();
     return 0;
 }
