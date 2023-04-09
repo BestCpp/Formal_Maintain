@@ -4,6 +4,11 @@
 #include <pthread.h>
 #include <queue>
 
+
+// if 改成while的原因：生产者线程可能不止一个，当消费者唤醒一批生产者线程时
+// 它们是有先后顺序执行的。pthread_cond_wait会恢复锁，然后向下执行，当前一个
+// 线程执行完成后解锁，后面的线程也从pthread_cond_wait继续向下执行(pthread_cond_wait也可能执行出错
+// 本来应该进入条件变量的线程却没有进入)。前一个线程可能已经把缓冲区写满了，而后面的线程还不知道
 template <class T>
 class block_queue
 {
@@ -35,7 +40,7 @@ public:
     void pop(T* data)//输出型参数
     {//消费者消费
         pthread_mutex_lock(&_mtx);
-        if(is_empty())//如果容量为空，不能消费
+        while(is_empty())//如果容量为空，不能消费
         {
             pthread_cond_wait(&_ccond,&_mtx);//生产者线程放入条件变量等待
         }
@@ -43,7 +48,7 @@ public:
         *data = q.front();
         q.pop();
         //消费一个空间就多一个，生产者可以生产
-        pthread_cond_broadcast(&_pcond);
+        pthread_cond_signal(&_pcond);
         pthread_mutex_unlock(&_mtx);
     }
     ~block_queue()
